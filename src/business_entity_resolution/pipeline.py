@@ -3,7 +3,7 @@ from pathlib import Path
 import pandas as pd
 
 from .inference import generate_predictions
-
+from .evaluate import parse_match_ids
 
 def run_pipeline(
     source1_df,
@@ -179,3 +179,129 @@ def save_candidate_pairs(
         sep="\t",
         index=False,
     )
+
+def validate_output_consistency(
+    matching_results,
+    candidate_pairs,
+):
+    """
+    Validate that every final match exists in the
+    generated candidate pairs.
+
+    Parameters
+    ----------
+    matching_results : pandas.DataFrame
+        Columns:
+            source1_entity_id
+            matched_entity_ids
+
+    candidate_pairs : pandas.DataFrame
+        Columns:
+            source1_entity_id
+            candidate_entity_id
+
+    Returns
+    -------
+    bool
+        True when all final matches are valid.
+
+    Raises
+    ------
+    ValueError
+        If a final match does not exist in candidate pairs.
+    """
+
+    required_matching_columns = {
+        "source1_entity_id",
+        "matched_entity_ids",
+    }
+
+    required_candidate_columns = {
+        "source1_entity_id",
+        "candidate_entity_id",
+    }
+
+    missing_matching = (
+        required_matching_columns
+        - set(matching_results.columns)
+    )
+
+    missing_candidates = (
+        required_candidate_columns
+        - set(candidate_pairs.columns)
+    )
+
+    if missing_matching:
+        raise ValueError(
+            f"Missing matching result columns: "
+            f"{sorted(missing_matching)}"
+        )
+
+    if missing_candidates:
+        raise ValueError(
+            f"Missing candidate pair columns: "
+            f"{sorted(missing_candidates)}"
+        )
+
+    # Build:
+    #
+    # S1-100 -> {S2-200, S3-300}
+    #
+    candidate_lookup = {}
+
+    for _, row in candidate_pairs.iterrows():
+
+        source1_id = str(
+            row["source1_entity_id"]
+        ).strip()
+
+        candidate_id = str(
+            row["candidate_entity_id"]
+        ).strip()
+
+        if not source1_id or not candidate_id:
+            continue
+
+        candidate_lookup.setdefault(
+            source1_id,
+            set(),
+        ).add(candidate_id)
+
+    # Check every final match.
+    invalid_matches = []
+
+    for _, row in matching_results.iterrows():
+
+        source1_id = str(
+            row["source1_entity_id"]
+        ).strip()
+
+        matched_ids = parse_match_ids(
+            row["matched_entity_ids"]
+        )
+
+        valid_candidates = candidate_lookup.get(
+            source1_id,
+            set(),
+        )
+
+        for candidate_id in matched_ids:
+
+            if candidate_id not in valid_candidates:
+
+                invalid_matches.append(
+                    (
+                        source1_id,
+                        candidate_id,
+                    )
+                )
+
+    if invalid_matches:
+
+        raise ValueError(
+            "Final matches contain candidates that "
+            "were not present in candidate_pairs: "
+            f"{invalid_matches[:10]}"
+        )
+
+    return True

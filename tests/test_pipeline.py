@@ -124,3 +124,73 @@ def test_create_matching_results():
     assert result.iloc[1]["source1_entity_id"] == "S1-101"
 
     assert result.iloc[1]["matched_entity_ids"] == ""
+
+def test_validate_output_consistency():
+
+    from src.business_entity_resolution.pipeline import (
+        validate_output_consistency,
+    )
+
+    candidate_pairs = pd.DataFrame({
+        "source1_entity_id": [
+            "S1-100",
+            "S1-100",
+            "S1-101",
+        ],
+        "candidate_entity_id": [
+            "S2-200",
+            "S3-300",
+            "S2-400",
+        ],
+    })
+
+    matching_results = pd.DataFrame({
+        "source1_entity_id": [
+            "S1-100",
+            "S1-101",
+        ],
+        "matched_entity_ids": [
+            "S2-200,S3-300",
+            "",
+        ],
+    })
+
+    assert validate_output_consistency(
+        matching_results,
+        candidate_pairs,
+    ) is True
+
+def test_validate_output_consistency_rejects_invalid_match():
+
+    from src.business_entity_resolution.pipeline import (
+        validate_output_consistency,
+    )
+
+    candidate_pairs = pd.DataFrame({
+        "source1_entity_id": [
+            "S1-100",
+        ],
+        "candidate_entity_id": [
+            "S2-200",
+        ],
+    })
+
+    matching_results = pd.DataFrame({
+        "source1_entity_id": [
+            "S1-100",
+        ],
+        "matched_entity_ids": [
+            "S2-999",
+        ],
+    })
+
+    try:
+        validate_output_consistency(
+            matching_results,
+            candidate_pairs,
+        )
+
+        assert False
+
+    except ValueError:
+        assert True
