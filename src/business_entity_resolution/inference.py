@@ -128,3 +128,77 @@ def generate_predictions(predictions, threshold=0.80):
     )
 
     return matches
+
+def tune_threshold(
+    predictions,
+    ground_truth,
+    thresholds=None,
+):
+    """
+    Evaluate multiple thresholds and return their
+    Precision, Recall and F0.5 scores.
+
+    Parameters
+    ----------
+    predictions : pandas.DataFrame
+        Required columns:
+            source1_entity_id
+            candidate_entity_id
+            score
+
+    ground_truth : dict
+        Example:
+            {
+                "S1-100": {"S2-200", "S3-300"},
+                "S1-101": set()
+            }
+
+    thresholds : list, optional
+        Thresholds to evaluate.
+
+    Returns
+    -------
+    pandas.DataFrame
+        One row per threshold.
+    """
+
+    from .evaluate import evaluate_all_entities
+
+    if thresholds is None:
+        thresholds = [
+            0.50,
+            0.55,
+            0.60,
+            0.65,
+            0.70,
+            0.75,
+            0.80,
+            0.85,
+            0.90,
+            0.95,
+        ]
+
+    validate_prediction_columns(predictions)
+
+    results = []
+
+    for threshold in thresholds:
+
+        predicted_matches = generate_predictions(
+            predictions,
+            threshold=threshold,
+        )
+
+        metrics = evaluate_all_entities(
+            ground_truth,
+            predicted_matches,
+        )
+
+        results.append({
+            "threshold": threshold,
+            "precision": metrics["precision"],
+            "recall": metrics["recall"],
+            "f05": metrics["f05"],
+        })
+
+    return pd.DataFrame(results)

@@ -6,6 +6,44 @@ from src.business_entity_resolution.inference import (
     build_match_dictionary,
     generate_predictions,
 )
+def test_tune_threshold():
+    predictions = create_test_predictions()
+
+    ground_truth = {
+        "S1-100": {
+            "S2-200",
+            "S3-300",
+        },
+        "S1-101": {
+            "S2-400",
+        },
+    }
+
+    from src.business_entity_resolution.inference import (
+        tune_threshold,
+    )
+
+    results = tune_threshold(
+        predictions,
+        ground_truth,
+        thresholds=[
+            0.50,
+            0.80,
+            0.95,
+        ],
+    )
+
+    assert len(results) == 3
+
+    assert list(results["threshold"]) == [
+        0.50,
+        0.80,
+        0.95,
+    ]
+
+    assert "precision" in results.columns
+    assert "recall" in results.columns
+    assert "f05" in results.columns
 
 
 def create_test_predictions():
@@ -103,3 +141,42 @@ def test_invalid_threshold():
 
     except ValueError:
         assert True
+
+def test_tune_threshold():
+    predictions = create_test_predictions()
+
+    ground_truth = {
+        "S1-100": {
+            "S2-200",
+            "S3-300",
+        },
+        "S1-101": {
+            "S2-400",
+        },
+    }
+
+    from src.business_entity_resolution.inference import (
+        tune_threshold,
+    )
+
+    results = tune_threshold(
+        predictions,
+        ground_truth,
+        thresholds=[
+            0.50,
+            0.80,
+            0.95,
+        ],
+    )
+
+    assert len(results) == 3
+
+    assert list(results["threshold"]) == [
+        0.50,
+        0.80,
+        0.95,
+    ]
+
+    assert "precision" in results.columns
+    assert "recall" in results.columns
+    assert "f05" in results.columns
