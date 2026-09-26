@@ -194,3 +194,112 @@ def test_validate_output_consistency_rejects_invalid_match():
 
     except ValueError:
         assert True
+
+def test_end_to_end_output_generation(tmp_path):
+
+    from src.business_entity_resolution.pipeline import (
+        save_matching_results,
+        save_candidate_pairs,
+        validate_output_consistency,
+    )
+
+    # -----------------------------------------
+    # Mock candidate pairs
+    # -----------------------------------------
+
+    candidate_pairs = pd.DataFrame({
+        "source1_entity_id": [
+            "S1-100",
+            "S1-100",
+            "S1-101",
+        ],
+        "candidate_entity_id": [
+            "S2-200",
+            "S3-300",
+            "S2-400",
+        ],
+    })
+
+    # -----------------------------------------
+    # Mock accepted matches
+    # -----------------------------------------
+
+    matches = {
+        "S1-100": {
+            "S2-200",
+            "S3-300",
+        }
+    }
+
+    source1_ids = [
+        "S1-100",
+        "S1-101",
+    ]
+
+    # -----------------------------------------
+    # Create output directory
+    # -----------------------------------------
+
+    output_dir = tmp_path / "output"
+
+    matching_path = (
+        output_dir / "matching_results.tsv"
+    )
+
+    candidate_path = (
+        output_dir / "candidate_pairs.tsv"
+    )
+
+    # -----------------------------------------
+    # Save both required files
+    # -----------------------------------------
+
+    matching_results = save_matching_results(
+        matches,
+        source1_ids,
+        matching_path,
+    )
+
+    save_candidate_pairs(
+    candidate_pairs,
+    source1_ids,
+    candidate_path,
+)
+
+    # -----------------------------------------
+    # Check files exist
+    # -----------------------------------------
+
+    assert matching_path.exists()
+    assert candidate_path.exists()
+
+    # -----------------------------------------
+    # Check required columns
+    # -----------------------------------------
+
+    assert list(matching_results.columns) == [
+        "source1_entity_id",
+        "matched_entity_ids",
+    ]
+
+    # -----------------------------------------
+    # Validate final matches
+    # -----------------------------------------
+
+    assert validate_output_consistency(
+        matching_results,
+        candidate_pairs,
+    ) is True
+
+    # -----------------------------------------
+    # Check Source 1 coverage
+    # -----------------------------------------
+
+    assert len(matching_results) == 2
+
+    assert set(
+        matching_results["source1_entity_id"]
+    ) == {
+        "S1-100",
+        "S1-101",
+    }

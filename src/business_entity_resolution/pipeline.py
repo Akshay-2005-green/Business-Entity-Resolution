@@ -160,25 +160,93 @@ def save_matching_results(
     return results
 
 
+def create_candidate_results(candidate_pairs, source1_ids):
+    """
+    Convert internal candidate pairs into the official
+    challenge candidate_pairs.tsv format.
+
+    Internal format:
+        source1_entity_id
+        candidate_entity_id
+
+    Output format:
+        source1_entity_id
+        candidate_entity_ids
+    """
+
+    candidate_lookup = {}
+
+    # Build candidate ID set for every Source 1 entity.
+    for _, row in candidate_pairs.iterrows():
+
+        source1_id = str(
+            row["source1_entity_id"]
+        ).strip()
+
+        candidate_id = str(
+            row["candidate_entity_id"]
+        ).strip()
+
+        if not source1_id or not candidate_id:
+            continue
+
+        candidate_lookup.setdefault(
+            source1_id,
+            set(),
+        ).add(candidate_id)
+
+    rows = []
+
+    # IMPORTANT:
+    # Every Source 1 entity must have a row.
+    for source1_id in source1_ids:
+
+        candidate_ids = sorted(
+            candidate_lookup.get(
+                source1_id,
+                set(),
+            )
+        )
+
+        rows.append({
+            "source1_entity_id": source1_id,
+            "candidate_entity_ids": ",".join(
+                candidate_ids
+            ),
+        })
+
+    return pd.DataFrame(rows)
+
+
 def save_candidate_pairs(
     candidate_pairs,
+    source1_ids,
     output_path,
 ):
     """
-    Save candidate pairs as a TSV file.
+    Save candidate pairs in the official challenge
+    submission format.
     """
 
+    results = create_candidate_results(
+        candidate_pairs,
+        source1_ids,
+    )
+
     output_path = Path(output_path)
+
     output_path.parent.mkdir(
         parents=True,
         exist_ok=True,
     )
 
-    candidate_pairs.to_csv(
+    results.to_csv(
         output_path,
         sep="\t",
         index=False,
     )
+
+    return results
 
 def validate_output_consistency(
     matching_results,
